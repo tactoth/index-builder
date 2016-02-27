@@ -132,6 +132,9 @@ object Main {
           val matchParams = Range.inclusive(0, matcher.groupCount()).map(matcher.group).toSeq
           val resultPath = applyResult(matchParams, params.resultFormat)
           val segments = resultPath.split("/")
+
+          Console.err.println(s"$resultPath: $relPath")
+
           rootNode.addNodeUnderPath(segments.toList, new Leaf(segments.last, relPath))
         }
     }
