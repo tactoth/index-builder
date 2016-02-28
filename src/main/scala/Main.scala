@@ -163,27 +163,32 @@ object Main {
     def buildCategoryTitle(category: Category) = s"${category.name} (${category.children.size})"
 
     def buildOutline(category: Category): String = {
-      traverse(
+      "<ul>" + traverse(
         Nil,
         category,
         onCategory = { (parents, category) =>
           s"""<li><a href="#${buildHtmlId(parents, category.name)}">${buildCategoryTitle(category)}</a></li>"""
         },
         combineCategory = { (categoryRepr, childrenRepr) =>
-          s"<ul>$categoryRepr ${childrenRepr.mkString("\n")}</ul>"
+          val childrenAsText = childrenRepr.mkString("\n").trim
+          if (childrenAsText.isEmpty)
+            categoryRepr
+          else
+            s"$categoryRepr\n<ul>\n$childrenAsText\n</ul>"
         },
         onLeaf = { (parents, leaf) =>
           // ignore leafs
           ""
-        })
+        }) + "</ul>"
     }
 
     // build the html
-    def buildHtml(level: Int, node: Node): String = {
+    def buildHtml(node: Node): String = {
       traverse(
         Nil,
         node,
         onCategory = { (parents, category) =>
+          val level = parents.size + 1
           s"""<h$level id="${buildHtmlId(parents, category.name)}">${buildCategoryTitle(category)}</h$level>"""
         },
         combineCategory = { (categoryRepr, childrenRepr) =>
@@ -199,6 +204,6 @@ object Main {
         })
     }
 
-    println(buildOutline(rootNode) + buildHtml(1, rootNode))
+    println(buildOutline(rootNode) + "\n" + buildHtml(rootNode))
   }
 }
