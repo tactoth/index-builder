@@ -121,7 +121,7 @@ object Main {
     }
 
     // the root node
-    val rootNode = new Category("")
+    val rootNode = new Category("index")
 
     val pathPattern = Pattern.compile(params.pathPattern)
     visitWithRelativePath(new File(params.dirs.get(0))) {
@@ -160,12 +160,14 @@ object Main {
 
     def buildHtmlId(parents: List[String], name: String) = (name :: parents).reverse.mkString("_")
 
+    def buildCategoryTitle(category: Category) = s"${category.name} (${category.children.size})"
+
     def buildOutline(category: Category): String = {
       traverse(
         Nil,
         category,
         onCategory = { (parents, category) =>
-          s"""<li><a href="#${buildHtmlId(parents, category.name)}">${category.name}</a></li>"""
+          s"""<li><a href="#${buildHtmlId(parents, category.name)}">${buildCategoryTitle(category)}</a></li>"""
         },
         combineCategory = { (categoryRepr, childrenRepr) =>
           s"<ul>$categoryRepr ${childrenRepr.mkString("\n")}</ul>"
@@ -182,7 +184,7 @@ object Main {
         Nil,
         node,
         onCategory = { (parents, category) =>
-          s"""<h$level id="${buildHtmlId(parents, category.name)}">${category.name} (${category.children.size})</h$level>"""
+          s"""<h$level id="${buildHtmlId(parents, category.name)}">${buildCategoryTitle(category)}</h$level>"""
         },
         combineCategory = { (categoryRepr, childrenRepr) =>
           categoryRepr + childrenRepr.mkString("\n")
