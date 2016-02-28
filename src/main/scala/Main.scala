@@ -139,23 +139,64 @@ object Main {
         }
     }
 
+    /**
+     * Please notice: parents are reveresd, parents.head is the immediate parent
+     */
+    def traverse(parents: List[String],
+                 node: Node,
+                 onCategory: (List[String], Category) => String,
+                 combineCategory: (String, Traversable[String]) => String,
+                 onLeaf: (List[String], Leaf) => String): String = {
+      node match {
+        case category: Category =>
+          combineCategory(
+            onCategory(parents, category),
+            for (child <- category.children) yield traverse(category.name :: parents, child, onCategory, combineCategory, onLeaf)
+          )
+        case leaf: Leaf =>
+          onLeaf(parents, leaf)
+      }
+    }
+
+    def buildHtmlId(parents: List[String], name: String) = (name :: parents).reverse.mkString("_")
+
+    def buildOutline(category: Category): String = {
+      traverse(
+        Nil,
+        category,
+        onCategory = { (parents, category) =>
+          s"""<li><a href="#${buildHtmlId(parents, category.name)}">${category.name}</a></li>"""
+        },
+        combineCategory = { (categoryRepr, childrenRepr) =>
+          s"<ul>$categoryRepr ${childrenRepr.mkString("\n")}</ul>"
+        },
+        onLeaf = { (parents, leaf) =>
+          // ignore leafs
+          ""
+        })
+    }
+
     // build the html
     def buildHtml(level: Int, node: Node): String = {
-      node match {
-        case Category(name, children) => s"<h$level>$name</h$level>\n${
-          children.map { child =>
-            buildHtml(level + 1, child)
-          }.mkString("")
-        }"
-        case Leaf(name, path) =>
+      traverse(
+        Nil,
+        node,
+        onCategory = { (parents, category) =>
+          s"""<h$level id="${buildHtmlId(parents, category.name)}">${category.name} (${category.children.size})</h$level>"""
+        },
+        combineCategory = { (categoryRepr, childrenRepr) =>
+          categoryRepr + childrenRepr.mkString("\n")
+        },
+        onLeaf = { (parents, leaf) =>
+          val Leaf(name, path) = leaf
           if (Seq("png", "jpg", "gif").exists(path.endsWith)) {
             s"""<a href="$path">$name <img src="$path"/></a>"""
           } else {
             s"""<a href="$path">$name</a>"""
           }
-      }
+        })
     }
 
-    println(buildHtml(1, rootNode))
+    println(buildOutline(rootNode) + buildHtml(1, rootNode))
   }
 }
