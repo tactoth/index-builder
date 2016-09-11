@@ -2,19 +2,24 @@ import java.io.File
 import java.util
 import java.util.regex.Pattern
 
+import ch.qos.logback.classic.Level
 import com.beust.jcommander.{JCommander, Parameter}
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
 
 /**
- * Index generator
- *
- * index-builder -pattern (\w+)/1x_web/ic_(\w+)_black_18dp\\.png -result $1/$2 dir
- *
- *
- * Created by liuwei on 2/27/16.
- */
+  * Index generator
+  *
+  * index-builder -pattern (\w+)/1x_web/ic_(\w+)_black_18dp\\.png -result $1/$2 dir
+  *
+  *
+  * Created by liuwei on 2/27/16.
+  */
 object Main {
+
+  val logger = Logger(LoggerFactory.getLogger("main"))
 
   object params {
     @Parameter(names = Array("-pattern"), description = "The pattern to find the files to include in the index", required = true)
@@ -22,6 +27,9 @@ object Main {
 
     @Parameter(names = Array("-result"), description = "The result format, i.e. $1/$2/$3", required = true)
     var resultFormat: String = null
+
+    @Parameter(names = Array("-d"), description = "Enable debug logging", required = false)
+    var debug: Boolean = false
 
     @Parameter(description = "The folder to generate the index file", required = true)
     var dirs: util.List[String] = new util.ArrayList[String]()
@@ -106,8 +114,14 @@ object Main {
     val commander = new JCommander()
     commander.addObject(params)
 
+    def usage(): Unit = {
+      val out = new java.lang.StringBuilder()
+      commander.usage(out)
+      logger.info(out.toString)
+    }
+
     if (args.isEmpty) {
-      commander.usage()
+      usage()
       return
     }
 
@@ -115,8 +129,8 @@ object Main {
       commander.parse(args: _*)
     } catch {
       case e: Exception =>
-        e.printStackTrace()
-        commander.usage()
+        logger.error("cannot parse args", e)
+        usage()
         return
     }
 
@@ -124,24 +138,36 @@ object Main {
     val rootNode = new Category("index")
 
     val pathPattern = Pattern.compile(params.pathPattern)
-    visitWithRelativePath(new File(params.dirs.get(0))) {
+    val dir = params.dirs.get(0)
+
+    // apply log level
+    logger.underlying.asInstanceOf[ch.qos.logback.classic.Logger].setLevel(if (params.debug) Level.DEBUG else Level.INFO)
+
+    logger.debug(s"pathPattern: $pathPattern, dir: $dir")
+
+    visitWithRelativePath(new File(dir)) {
       relPath =>
+
         val matcher = pathPattern.matcher(relPath)
-        if (matcher.find()) {
+        val matches = matcher.find()
+
+        logger.debug(s"Handling: $relPath, matches: $matches")
+
+        if (matches) {
           // this path is what we are interested
           val matchParams = Range.inclusive(0, matcher.groupCount()).map(matcher.group).toSeq
           val resultPath = applyResult(matchParams, params.resultFormat)
           val segments = resultPath.split("/")
 
-          Console.err.println(s"$resultPath: $relPath")
+          logger.debug(s"$resultPath: $relPath")
 
           rootNode.addNodeUnderPath(segments.toList, new Leaf(segments.last, relPath))
         }
     }
 
     /**
-     * Please notice: parents are reveresd, parents.head is the immediate parent
-     */
+      * Please notice: parents are reveresd, parents.head is the immediate parent
+      */
     def traverse(parents: List[String],
                  node: Node,
                  onCategory: (List[String], Category) => String,
